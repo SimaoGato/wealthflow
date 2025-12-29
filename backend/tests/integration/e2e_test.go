@@ -612,3 +612,141 @@ func TestNegativeScenarios(t *testing.T) {
 		assert.Equal(t, codes.InvalidArgument, status.Code(err), "Error code should be InvalidArgument")
 	})
 }
+
+// TestReadFlow tests the Read APIs: ListBuckets, ListTransactions, and GetNetWorth
+func TestReadFlow(t *testing.T) {
+	ctx := getAuthContext()
+
+	// Setup: Create test data
+	employerID := testBuckets["Employer"]
+	teslaID := testBuckets["Tesla Stock"]
+	mainBankID := testBuckets["Main Bank"]
+
+	// 1. Record inflow with description "Salary" to test ListTransactions
+	salaryAmount := "2000.00"
+	salaryReq := &wealthflowv1.RecordInflowRequest{
+		Amount:         salaryAmount,
+		Description:    "Salary",
+		SourceBucketId: employerID.String(),
+		IsExternal:     true,
+	}
+
+	salaryResp, err := grpcClient.RecordInflow(ctx, salaryReq)
+	require.NoError(t, err, "RecordInflow should succeed")
+
+	// 2. Update investment for Tesla Stock to $800.00 to test GetNetWorth equity
+	teslaMarketValue := "800.00"
+	investmentReq := &wealthflowv1.UpdateInvestmentRequest{
+		BucketId:    teslaID.String(),
+		MarketValue: teslaMarketValue,
+	}
+
+	_, err = grpcClient.UpdateInvestment(ctx, investmentReq)
+	require.NoError(t, err, "UpdateInvestment should succeed")
+
+	// 3. Test ListBuckets: Verify "Groceries" and "Tesla Stock" appear in the list
+	t.Run("ListBuckets", func(t *testing.T) {
+		bucketsReq := &wealthflowv1.ListBucketsRequest{}
+		bucketsResp, err := grpcClient.ListBuckets(ctx, bucketsReq)
+		require.NoError(t, err, "ListBuckets should succeed")
+		require.NotNil(t, bucketsResp, "ListBuckets response should not be nil")
+
+		// Find "Groceries" and "Tesla Stock" in the list
+		var groceriesFound, teslaFound bool
+		for _, bucket := range bucketsResp.Buckets {
+			if bucket.Name == "Groceries" {
+				groceriesFound = true
+				assert.Equal(t, "EXPENSE", bucket.Type, "Groceries should be EXPENSE type")
+			}
+			if bucket.Name == "Tesla Stock" {
+				teslaFound = true
+				assert.Equal(t, "EQUITY", bucket.Type, "Tesla Stock should be EQUITY type")
+			}
+		}
+
+		assert.True(t, groceriesFound, "Groceries bucket should appear in ListBuckets")
+		assert.True(t, teslaFound, "Tesla Stock bucket should appear in ListBuckets")
+	})
+
+	// 4. Test ListTransactions: Verify the "Salary" transaction appears in the history
+	t.Run("ListTransactions", func(t *testing.T) {
+		transactionsReq := &wealthflowv1.ListTransactionsRequest{
+			Limit:  100,
+			Offset: 0,
+		}
+		transactionsResp, err := grpcClient.ListTransactions(ctx, transactionsReq)
+		require.NoError(t, err, "ListTransactions should succeed")
+		require.NotNil(t, transactionsResp, "ListTransactions response should not be nil")
+
+		// Find the specific "Salary" transaction by ID (the one we just created)
+		var salaryTx *wealthflowv1.Transaction
+		for _, tx := range transactionsResp.Transactions {
+			if tx.Id == salaryResp.TransactionId {
+				salaryTx = tx
+				break
+			}
+		}
+
+		require.NotNil(t, salaryTx, "Salary transaction should appear in ListTransactions")
+		assert.Equal(t, "Salary", salaryTx.Description, "Transaction description should match")
+
+		// Compare amounts as decimals to handle formatting differences
+		expectedAmount, err := decimal.NewFromString(salaryAmount)
+		require.NoError(t, err)
+		actualAmount, err := decimal.NewFromString(salaryTx.Amount)
+		require.NoError(t, err)
+		assert.True(t, actualAmount.Equal(expectedAmount),
+			"Salary transaction amount should match: got %s, expected %s",
+			salaryTx.Amount, salaryAmount)
+
+		assert.True(t, salaryTx.IsExternal, "Salary transaction should be marked as external")
+	})
+
+	// 5. Test GetNetWorth: Verify Liquidity and Equity values
+	t.Run("GetNetWorth", func(t *testing.T) {
+		netWorthReq := &wealthflowv1.GetNetWorthRequest{}
+		netWorthResp, err := grpcClient.GetNetWorth(ctx, netWorthReq)
+		require.NoError(t, err, "GetNetWorth should succeed")
+		require.NotNil(t, netWorthResp, "GetNetWorth response should not be nil")
+
+		// Verify Liquidity matches the current bank balance
+		// Main Bank should have a balance equal to the salary amount (1000.00 from TestEndToEndFlow + 2000.00 from this test)
+		// But we'll check the actual balance from the database
+		var mainBankBalance string
+		balanceQuery := `SELECT current_balance FROM buckets WHERE id = $1`
+		err = db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&mainBankBalance)
+		require.NoError(t, err, "Should be able to query Main Bank balance")
+
+		mainBankBalanceDecimal, err := decimal.NewFromString(mainBankBalance)
+		require.NoError(t, err)
+
+		liquidityDecimal, err := decimal.NewFromString(netWorthResp.Liquidity)
+		require.NoError(t, err)
+
+		// Liquidity should match the Main Bank balance (sum of all physical bucket balances)
+		// Since we only have Main Bank as a physical bucket in tests, they should match
+		assert.True(t, liquidityDecimal.Equal(mainBankBalanceDecimal),
+			"Liquidity should match Main Bank balance: got %s, expected %s",
+			netWorthResp.Liquidity, mainBankBalance)
+
+		// Verify Equity matches the Tesla stock value ($800.00)
+		expectedEquity, err := decimal.NewFromString(teslaMarketValue)
+		require.NoError(t, err)
+
+		equityDecimal, err := decimal.NewFromString(netWorthResp.Equity)
+		require.NoError(t, err)
+
+		assert.True(t, equityDecimal.Equal(expectedEquity),
+			"Equity should match Tesla stock value: got %s, expected %s",
+			netWorthResp.Equity, teslaMarketValue)
+
+		// Verify total net worth is liquidity + equity
+		expectedTotal := liquidityDecimal.Add(expectedEquity)
+		totalDecimal, err := decimal.NewFromString(netWorthResp.TotalNetWorth)
+		require.NoError(t, err)
+
+		assert.True(t, totalDecimal.Equal(expectedTotal),
+			"Total net worth should equal liquidity + equity: got %s, expected %s",
+			netWorthResp.TotalNetWorth, expectedTotal.String())
+	})
+}

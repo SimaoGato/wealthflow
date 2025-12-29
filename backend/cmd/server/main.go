@@ -16,6 +16,7 @@ import (
 	grpcadapter "github.com/simaogato/wealthflow-backend/internal/adapter/grpc"
 	wealthflowv1 "github.com/simaogato/wealthflow-backend/internal/adapter/grpc/wealthflow/v1"
 	"github.com/simaogato/wealthflow-backend/internal/adapter/repository/postgres"
+	"github.com/simaogato/wealthflow-backend/internal/usecase/dashboard"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/expense"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/inflow"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/investment"
@@ -72,6 +73,7 @@ func main() {
 	inflowService := inflow.NewInflowService(bucketRepo, transactionRepo, splitRuleRepo)
 	expenseService := expense.NewExpenseService(bucketRepo, transactionRepo)
 	investmentService := investment.NewInvestmentService(bucketRepo, marketValueRepo)
+	dashboardService := dashboard.NewDashboardService(bucketRepo, transactionRepo, marketValueRepo)
 
 	// Initialize System Seeder and run it
 	systemSeeder := seeder.NewSystemSeeder(bucketRepo)
@@ -94,7 +96,7 @@ func main() {
 	)
 
 	// Register WealthFlowServiceServer
-	grpcAdapter := grpcadapter.NewServer(expenseService, inflowService, investmentService)
+	grpcAdapter := grpcadapter.NewServer(expenseService, inflowService, investmentService, dashboardService)
 	wealthflowv1.RegisterWealthFlowServiceServer(grpcServer, grpcAdapter)
 
 	reflection.Register(grpcServer)

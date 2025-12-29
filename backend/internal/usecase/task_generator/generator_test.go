@@ -38,6 +38,14 @@ func (m *MockBucketRepository) GetSystemBucket(ctx context.Context, bucketType d
 	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
+func (m *MockBucketRepository) List(ctx context.Context, typeFilter domain.BucketType) ([]*domain.Bucket, error) {
+	args := m.Called(ctx, typeFilter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
 func TestGenerateTasks_PaydayScenario(t *testing.T) {
 	// Payday scenario: Money moves from Income (External) to Savings (Physical)
 	// This should NOT generate a task because Income is an external bucket

@@ -17,12 +17,21 @@ type BucketRepository interface {
 	// GetSystemBucket retrieves a system bucket by its type
 	// This is a convenience method for finding system buckets
 	GetSystemBucket(ctx context.Context, bucketType BucketType) (*Bucket, error)
+
+	// List retrieves a list of buckets, optionally filtered by type
+	// If typeFilter is empty, returns all buckets
+	List(ctx context.Context, typeFilter BucketType) ([]*Bucket, error)
 }
 
 // TransactionRepository defines the interface for transaction persistence operations
 type TransactionRepository interface {
 	// Create creates a new transaction
 	Create(ctx context.Context, tx *Transaction) error
+
+	// List retrieves a paginated list of transactions
+	// If bucketID is nil, returns all transactions
+	// limit and offset are used for pagination
+	List(ctx context.Context, limit, offset int, bucketID *uuid.UUID) ([]*Transaction, error)
 }
 
 // SplitRuleRepository defines the interface for split rule persistence operations

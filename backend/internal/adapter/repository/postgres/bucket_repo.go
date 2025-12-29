@@ -136,3 +136,74 @@ func (r *bucketRepository) GetSystemBucket(ctx context.Context, bucketType domai
 
 	return &bucket, nil
 }
+
+// List retrieves a list of buckets, optionally filtered by type
+func (r *bucketRepository) List(ctx context.Context, typeFilter domain.BucketType) ([]*domain.Bucket, error) {
+	var query string
+	var args []interface{}
+
+	if typeFilter != "" {
+		query = `
+			SELECT id, name, bucket_type, parent_physical_bucket_id, current_balance
+			FROM buckets
+			WHERE bucket_type = $1
+			ORDER BY name
+		`
+		args = []interface{}{string(typeFilter)}
+	} else {
+		query = `
+			SELECT id, name, bucket_type, parent_physical_bucket_id, current_balance
+			FROM buckets
+			ORDER BY name
+		`
+		args = []interface{}{}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list buckets: %w", err)
+	}
+	defer rows.Close()
+
+	var buckets []*domain.Bucket
+	for rows.Next() {
+		var bucket domain.Bucket
+		var parentID sql.NullString
+		var balanceStr string
+
+		err := rows.Scan(
+			&bucket.ID,
+			&bucket.Name,
+			&bucket.BucketType,
+			&parentID,
+			&balanceStr,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan bucket: %w", err)
+		}
+
+		// Parse parent_physical_bucket_id (nullable)
+		if parentID.Valid {
+			parentUUID, err := uuid.Parse(parentID.String)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse parent_physical_bucket_id: %w", err)
+			}
+			bucket.ParentPhysicalBucketID = &parentUUID
+		}
+
+		// Parse current_balance (DECIMAL)
+		balance, err := decimal.NewFromString(balanceStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse current_balance: %w", err)
+		}
+		bucket.CurrentBalance = balance
+
+		buckets = append(buckets, &bucket)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating buckets: %w", err)
+	}
+
+	return buckets, nil
+}

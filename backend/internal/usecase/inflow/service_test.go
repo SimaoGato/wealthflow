@@ -37,6 +37,14 @@ func (m *MockBucketRepository) GetSystemBucket(ctx context.Context, bucketType d
 	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
+func (m *MockBucketRepository) List(ctx context.Context, typeFilter domain.BucketType) ([]*domain.Bucket, error) {
+	args := m.Called(ctx, typeFilter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
 // MockTransactionRepository is a mock implementation of TransactionRepository for testing
 type MockTransactionRepository struct {
 	mock.Mock
@@ -45,6 +53,14 @@ type MockTransactionRepository struct {
 func (m *MockTransactionRepository) Create(ctx context.Context, tx *domain.Transaction) error {
 	args := m.Called(ctx, tx)
 	return args.Error(0)
+}
+
+func (m *MockTransactionRepository) List(ctx context.Context, limit, offset int, bucketID *uuid.UUID) ([]*domain.Transaction, error) {
+	args := m.Called(ctx, limit, offset, bucketID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Transaction), args.Error(1)
 }
 
 // MockSplitRuleRepository is a mock implementation of SplitRuleRepository for testing

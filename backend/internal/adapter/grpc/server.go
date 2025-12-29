@@ -12,6 +12,7 @@ import (
 
 	wealthflowv1 "github.com/simaogato/wealthflow-backend/internal/adapter/grpc/wealthflow/v1"
 	"github.com/simaogato/wealthflow-backend/internal/domain"
+	"github.com/simaogato/wealthflow-backend/internal/usecase/dashboard"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/expense"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/inflow"
 	"github.com/simaogato/wealthflow-backend/internal/usecase/investment"
@@ -24,6 +25,7 @@ type Server struct {
 	ExpenseService    *expense.ExpenseService
 	InflowService     *inflow.InflowService
 	InvestmentService *investment.InvestmentService
+	DashboardService  *dashboard.DashboardService
 }
 
 // NewServer creates a new gRPC server instance
@@ -31,11 +33,13 @@ func NewServer(
 	expenseService *expense.ExpenseService,
 	inflowService *inflow.InflowService,
 	investmentService *investment.InvestmentService,
+	dashboardService *dashboard.DashboardService,
 ) *Server {
 	return &Server{
 		ExpenseService:    expenseService,
 		InflowService:     inflowService,
 		InvestmentService: investmentService,
+		DashboardService:  dashboardService,
 	}
 }
 
@@ -163,6 +167,121 @@ func (s *Server) UpdateInvestment(ctx context.Context, req *wealthflowv1.UpdateI
 	return &wealthflowv1.UpdateInvestmentResponse{
 		EntryId:   entry.ID.String(),
 		CreatedAt: timestamppb.New(entry.Date),
+	}, nil
+}
+
+// ListBuckets handles the ListBuckets RPC
+func (s *Server) ListBuckets(ctx context.Context, req *wealthflowv1.ListBucketsRequest) (*wealthflowv1.ListBucketsResponse, error) {
+	// Parse bucket type filter (optional)
+	var typeFilter domain.BucketType
+	if req.BucketType != "" {
+		typeFilter = domain.BucketType(req.BucketType)
+	}
+
+	// Get buckets from repository
+	buckets, err := s.DashboardService.BucketRepo.List(ctx, typeFilter)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	// Convert domain buckets to proto buckets
+	protoBuckets := make([]*wealthflowv1.Bucket, 0, len(buckets))
+	for _, bucket := range buckets {
+		protoBucket := &wealthflowv1.Bucket{
+			Id:             bucket.ID.String(),
+			Name:           bucket.Name,
+			Type:           string(bucket.BucketType),
+			CurrentBalance: bucket.CurrentBalance.String(),
+		}
+
+		// Set parent_id if it exists
+		if bucket.ParentPhysicalBucketID != nil {
+			protoBucket.ParentId = bucket.ParentPhysicalBucketID.String()
+		}
+
+		protoBuckets = append(protoBuckets, protoBucket)
+	}
+
+	return &wealthflowv1.ListBucketsResponse{
+		Buckets: protoBuckets,
+	}, nil
+}
+
+// ListTransactions handles the ListTransactions RPC
+func (s *Server) ListTransactions(ctx context.Context, req *wealthflowv1.ListTransactionsRequest) (*wealthflowv1.ListTransactionsResponse, error) {
+	// Validate limit (must be positive)
+	if req.Limit <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "limit must be positive")
+	}
+
+	// Validate offset (must be non-negative)
+	if req.Offset < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "offset must be non-negative")
+	}
+
+	// Parse optional bucket ID filter
+	var bucketID *uuid.UUID
+	if req.BucketId != "" {
+		parsedID, err := uuid.Parse(req.BucketId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid bucket_id format: %v", err)
+		}
+		bucketID = &parsedID
+	}
+
+	// Get transactions from repository
+	transactions, err := s.DashboardService.TransactionRepo.List(ctx, int(req.Limit), int(req.Offset), bucketID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	// Convert domain transactions to proto transactions
+	protoTransactions := make([]*wealthflowv1.Transaction, 0, len(transactions))
+	for _, tx := range transactions {
+		// Calculate transaction amount from entries
+		// For simplicity, we'll sum all credit amounts in the physical layer
+		var amount decimal.Decimal
+		for _, entry := range tx.Entries {
+			if entry.Layer == domain.LayerPhysical && entry.Type == domain.EntryTypeCredit {
+				amount = amount.Add(entry.Amount)
+			}
+		}
+
+		protoTx := &wealthflowv1.Transaction{
+			Id:          tx.ID.String(),
+			Description: tx.Description,
+			Amount:      amount.String(),
+			Date:        timestamppb.New(tx.Date),
+			IsExternal:  tx.IsExternalInflow,
+		}
+
+		protoTransactions = append(protoTransactions, protoTx)
+	}
+
+	// Note: For total_count, we would need a separate count query
+	// For now, we'll return the length as an approximation
+	// In a production system, you'd want to add a Count method to the repository
+	totalCount := int32(len(protoTransactions))
+
+	return &wealthflowv1.ListTransactionsResponse{
+		Transactions: protoTransactions,
+		TotalCount:   totalCount,
+	}, nil
+}
+
+// GetNetWorth handles the GetNetWorth RPC
+func (s *Server) GetNetWorth(ctx context.Context, req *wealthflowv1.GetNetWorthRequest) (*wealthflowv1.GetNetWorthResponse, error) {
+	// Call dashboard service
+	result, err := s.DashboardService.GetNetWorth(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
+	// Build response
+	return &wealthflowv1.GetNetWorthResponse{
+		TotalNetWorth: result.Total.String(),
+		Liquidity:     result.Liquidity.String(),
+		Equity:        result.Equity.String(),
 	}, nil
 }
 

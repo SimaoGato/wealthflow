@@ -22,6 +22,9 @@ const (
 	WealthFlowService_RecordInflow_FullMethodName     = "/wealthflow.v1.WealthFlowService/RecordInflow"
 	WealthFlowService_LogExpense_FullMethodName       = "/wealthflow.v1.WealthFlowService/LogExpense"
 	WealthFlowService_UpdateInvestment_FullMethodName = "/wealthflow.v1.WealthFlowService/UpdateInvestment"
+	WealthFlowService_ListBuckets_FullMethodName      = "/wealthflow.v1.WealthFlowService/ListBuckets"
+	WealthFlowService_ListTransactions_FullMethodName = "/wealthflow.v1.WealthFlowService/ListTransactions"
+	WealthFlowService_GetNetWorth_FullMethodName      = "/wealthflow.v1.WealthFlowService/GetNetWorth"
 )
 
 // WealthFlowServiceClient is the client API for WealthFlowService service.
@@ -39,6 +42,12 @@ type WealthFlowServiceClient interface {
 	// UpdateInvestment updates the market value for an investment bucket
 	// Inserts a new entry into market_value_history (does NOT create a transaction)
 	UpdateInvestment(ctx context.Context, in *UpdateInvestmentRequest, opts ...grpc.CallOption) (*UpdateInvestmentResponse, error)
+	// ListBuckets returns a list of buckets, optionally filtered by type
+	ListBuckets(ctx context.Context, in *ListBucketsRequest, opts ...grpc.CallOption) (*ListBucketsResponse, error)
+	// ListTransactions returns a paginated list of transactions
+	ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error)
+	// GetNetWorth calculates and returns the total net worth
+	GetNetWorth(ctx context.Context, in *GetNetWorthRequest, opts ...grpc.CallOption) (*GetNetWorthResponse, error)
 }
 
 type wealthFlowServiceClient struct {
@@ -79,6 +88,36 @@ func (c *wealthFlowServiceClient) UpdateInvestment(ctx context.Context, in *Upda
 	return out, nil
 }
 
+func (c *wealthFlowServiceClient) ListBuckets(ctx context.Context, in *ListBucketsRequest, opts ...grpc.CallOption) (*ListBucketsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBucketsResponse)
+	err := c.cc.Invoke(ctx, WealthFlowService_ListBuckets_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wealthFlowServiceClient) ListTransactions(ctx context.Context, in *ListTransactionsRequest, opts ...grpc.CallOption) (*ListTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTransactionsResponse)
+	err := c.cc.Invoke(ctx, WealthFlowService_ListTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wealthFlowServiceClient) GetNetWorth(ctx context.Context, in *GetNetWorthRequest, opts ...grpc.CallOption) (*GetNetWorthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNetWorthResponse)
+	err := c.cc.Invoke(ctx, WealthFlowService_GetNetWorth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WealthFlowServiceServer is the server API for WealthFlowService service.
 // All implementations must embed UnimplementedWealthFlowServiceServer
 // for forward compatibility.
@@ -94,6 +133,12 @@ type WealthFlowServiceServer interface {
 	// UpdateInvestment updates the market value for an investment bucket
 	// Inserts a new entry into market_value_history (does NOT create a transaction)
 	UpdateInvestment(context.Context, *UpdateInvestmentRequest) (*UpdateInvestmentResponse, error)
+	// ListBuckets returns a list of buckets, optionally filtered by type
+	ListBuckets(context.Context, *ListBucketsRequest) (*ListBucketsResponse, error)
+	// ListTransactions returns a paginated list of transactions
+	ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error)
+	// GetNetWorth calculates and returns the total net worth
+	GetNetWorth(context.Context, *GetNetWorthRequest) (*GetNetWorthResponse, error)
 	mustEmbedUnimplementedWealthFlowServiceServer()
 }
 
@@ -112,6 +157,15 @@ func (UnimplementedWealthFlowServiceServer) LogExpense(context.Context, *LogExpe
 }
 func (UnimplementedWealthFlowServiceServer) UpdateInvestment(context.Context, *UpdateInvestmentRequest) (*UpdateInvestmentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateInvestment not implemented")
+}
+func (UnimplementedWealthFlowServiceServer) ListBuckets(context.Context, *ListBucketsRequest) (*ListBucketsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListBuckets not implemented")
+}
+func (UnimplementedWealthFlowServiceServer) ListTransactions(context.Context, *ListTransactionsRequest) (*ListTransactionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListTransactions not implemented")
+}
+func (UnimplementedWealthFlowServiceServer) GetNetWorth(context.Context, *GetNetWorthRequest) (*GetNetWorthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNetWorth not implemented")
 }
 func (UnimplementedWealthFlowServiceServer) mustEmbedUnimplementedWealthFlowServiceServer() {}
 func (UnimplementedWealthFlowServiceServer) testEmbeddedByValue()                           {}
@@ -188,6 +242,60 @@ func _WealthFlowService_UpdateInvestment_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WealthFlowService_ListBuckets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBucketsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WealthFlowServiceServer).ListBuckets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WealthFlowService_ListBuckets_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WealthFlowServiceServer).ListBuckets(ctx, req.(*ListBucketsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WealthFlowService_ListTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTransactionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WealthFlowServiceServer).ListTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WealthFlowService_ListTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WealthFlowServiceServer).ListTransactions(ctx, req.(*ListTransactionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WealthFlowService_GetNetWorth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNetWorthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WealthFlowServiceServer).GetNetWorth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WealthFlowService_GetNetWorth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WealthFlowServiceServer).GetNetWorth(ctx, req.(*GetNetWorthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WealthFlowService_ServiceDesc is the grpc.ServiceDesc for WealthFlowService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -206,6 +314,18 @@ var WealthFlowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateInvestment",
 			Handler:    _WealthFlowService_UpdateInvestment_Handler,
+		},
+		{
+			MethodName: "ListBuckets",
+			Handler:    _WealthFlowService_ListBuckets_Handler,
+		},
+		{
+			MethodName: "ListTransactions",
+			Handler:    _WealthFlowService_ListTransactions_Handler,
+		},
+		{
+			MethodName: "GetNetWorth",
+			Handler:    _WealthFlowService_GetNetWorth_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

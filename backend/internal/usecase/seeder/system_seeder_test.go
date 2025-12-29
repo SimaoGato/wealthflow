@@ -38,6 +38,14 @@ func (m *MockBucketRepository) GetSystemBucket(ctx context.Context, bucketType d
 	return args.Get(0).(*domain.Bucket), args.Error(1)
 }
 
+func (m *MockBucketRepository) List(ctx context.Context, typeFilter domain.BucketType) ([]*domain.Bucket, error) {
+	args := m.Called(ctx, typeFilter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Bucket), args.Error(1)
+}
+
 func TestSystemSeeder_Seed_BucketsMissing(t *testing.T) {
 	ctx := context.Background()
 	mockRepo := new(MockBucketRepository)
