@@ -179,14 +179,14 @@ func mapError(err error) error {
 		strings.Contains(errorMsg, "invalid") ||
 		strings.Contains(errorMsg, "must reference") ||
 		strings.Contains(errorMsg, "must have") {
-		return status.Errorf(codes.InvalidArgument, errorMsg)
+		return status.Errorf(codes.InvalidArgument, "%s", errorMsg)
 	}
 
 	// Map "not found" errors to NotFound
 	if strings.Contains(errorMsg, "not found") {
-		return status.Errorf(codes.NotFound, errorMsg)
+		return status.Errorf(codes.NotFound, "%s", errorMsg)
 	}
 
 	// Default to Internal error for unknown errors
-	return status.Errorf(codes.Internal, errorMsg)
+	return status.Errorf(codes.Internal, "%s", errorMsg)
 }
