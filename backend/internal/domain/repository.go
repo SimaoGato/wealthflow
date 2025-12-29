@@ -24,3 +24,9 @@ type TransactionRepository interface {
 	// Create creates a new transaction
 	Create(ctx context.Context, tx *Transaction) error
 }
+
+// SplitRuleRepository defines the interface for split rule persistence operations
+type SplitRuleRepository interface {
+	// GetBySourceBucketID retrieves a split rule by its source bucket ID
+	GetBySourceBucketID(ctx context.Context, bucketID uuid.UUID) (*SplitRule, error)
+}
