@@ -30,3 +30,12 @@ type SplitRuleRepository interface {
 	// GetBySourceBucketID retrieves a split rule by its source bucket ID
 	GetBySourceBucketID(ctx context.Context, bucketID uuid.UUID) (*SplitRule, error)
 }
+
+// MarketValueRepository defines the interface for market value history persistence operations
+type MarketValueRepository interface {
+	// Add creates a new market value history entry
+	Add(ctx context.Context, entry *MarketValueHistory) error
+
+	// GetLatest retrieves the most recent market value entry for a given bucket
+	GetLatest(ctx context.Context, bucketID uuid.UUID) (*MarketValueHistory, error)
+}
