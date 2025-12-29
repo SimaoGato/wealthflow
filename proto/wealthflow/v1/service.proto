@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package wealthflow.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/simaogato/wealthflow-backend/proto/wealthflow/v1;wealthflowv1";
+
+// WealthFlowService provides RPCs for managing financial transactions
+service WealthFlowService {
+  // RecordInflow records an income/inflow transaction
+  // If is_external is true, triggers the Split Rule Engine to distribute funds
+  rpc RecordInflow(RecordInflowRequest) returns (RecordInflowResponse);
+
+  // LogExpense records an expense transaction with double-layer accounting
+  // Creates entries in both Physical and Virtual layers
+  rpc LogExpense(LogExpenseRequest) returns (LogExpenseResponse);
+}
+
+// RecordInflowRequest represents an income/inflow transaction
+message RecordInflowRequest {
+  // Amount as a decimal string (e.g., "1000.50") to preserve precision
+  string amount = 1;
+  
+  // Description of the inflow transaction
+  string description = 2;
+  
+  // Source bucket ID (UUID as string) - typically an Income or Physical bucket
+  string source_bucket_id = 3;
+  
+  // If true, this is an external inflow that triggers Split Rule Engine
+  bool is_external = 4;
+  
+  // Optional: Transaction date (defaults to server time if not provided)
+  google.protobuf.Timestamp date = 5;
+}
+
+// RecordInflowResponse returns the created transaction details
+message RecordInflowResponse {
+  // Transaction ID (UUID as string)
+  string transaction_id = 1;
+  
+  // Timestamp when the transaction was created
+  google.protobuf.Timestamp created_at = 2;
+}
+
+// LogExpenseRequest represents an expense transaction
+message LogExpenseRequest {
+  // Amount as a decimal string (e.g., "25.99") to preserve precision
+  string amount = 1;
+  
+  // Description of the expense
+  string description = 2;
+  
+  // Virtual bucket ID (UUID as string) - the virtual bucket being debited
+  string virtual_bucket_id = 3;
+  
+  // Category bucket ID (UUID as string) - the external expense category
+  string category_bucket_id = 4;
+  
+  // Optional: Override the physical bucket to credit
+  // If not provided, uses the parent physical bucket of virtual_bucket_id
+  string physical_bucket_override_id = 5;
+  
+  // Optional: Transaction date (defaults to server time if not provided)
+  google.protobuf.Timestamp date = 6;
+}
+
+// LogExpenseResponse returns the created transaction details
+message LogExpenseResponse {
+  // Transaction ID (UUID as string)
+  string transaction_id = 1;
+  
+  // Timestamp when the transaction was created
+  google.protobuf.Timestamp created_at = 2;
+  
+  // Physical bucket ID that was actually credited (useful when override was used)
+  string physical_bucket_id = 3;
+}
+
