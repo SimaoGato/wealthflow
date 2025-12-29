@@ -1,0 +1,20 @@
+package domain
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
+
+// BucketRepository defines the interface for bucket persistence operations
+type BucketRepository interface {
+	// GetByID retrieves a bucket by its ID
+	GetByID(ctx context.Context, id uuid.UUID) (*Bucket, error)
+
+	// Create creates a new bucket
+	Create(ctx context.Context, bucket *Bucket) error
+
+	// GetSystemBucket retrieves a system bucket by its type
+	// This is a convenience method for finding system buckets
+	GetSystemBucket(ctx context.Context, bucketType BucketType) (*Bucket, error)
+}
