@@ -1,0 +1,35 @@
+# --- User Documentation (Keep Local) ---
+*.md
+.cursorrules
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.DS_Store
+
+# --- Go (Backend) ---
+# Binaries
+backend/bin/
+backend/main
+backend/*.exe
+
+# Vendor
+backend/vendor/
+
+# Environment
+backend/.env
+
+# --- Flutter (Frontend) ---
+frontend/.dart_tool/
+frontend/build/
+frontend/.pub-cache/
+frontend/.packages
+frontend/pubspec.lock
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# --- Protobuf Generated (Optional: Keep or Ignore) ---
+# Usually good to ignore generated files and re-generate on CI
+backend/internal/adapter/grpc/*.pb.go
+frontend/lib/generated/
