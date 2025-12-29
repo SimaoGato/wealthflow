@@ -34,3 +34,10 @@ gen:
 clean:
 	rm -rf $(BACKEND_OUT)/*.pb.go
 	rm -rf $(FRONTEND_OUT)/*.dart
+
+# Docker commands
+docker-up:
+	docker-compose up -d
+
+docker-down:
+	docker-compose down
