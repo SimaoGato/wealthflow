@@ -1,0 +1,77 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Start services with Docker Compose
+        run: make docker-up
+
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in {1..30}; do
+            if docker exec wealthflow-postgres pg_isready -U postgres; then
+              echo "Postgres is ready"
+              break
+            fi
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run database migrations
+        run: make migrate-up
+
+      - name: Install netcat
+        run: sudo apt-get update && sudo apt-get install -y netcat-openbsd
+
+      - name: Wait for backend gRPC server to be ready
+        run: |
+          for i in {1..30}; do
+            if nc -z localhost 8080; then
+              echo "gRPC server is ready"
+              break
+            fi
+            echo "Waiting for gRPC server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Download Go dependencies
+        working-directory: ./backend
+        run: go mod download
+
+      - name: Run integration tests
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: wealthflow
+          GRPC_ADDRESS: localhost:8080
+        run: make test-integration
+
+      - name: Cleanup
+        if: always()
+        run: make docker-down
+

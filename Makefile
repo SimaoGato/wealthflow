@@ -45,3 +45,7 @@ docker-down:
 # Database migrations
 migrate-up:
 	docker run --rm -v $(PWD)/backend/db/migrations:/migrations --network host migrate/migrate -path=/migrations/ -database "postgres://postgres:postgres@localhost:5432/wealthflow?sslmode=disable" up
+
+# Integration tests
+test-integration:
+	cd backend && go test -v -tags=integration ./tests/integration/...
