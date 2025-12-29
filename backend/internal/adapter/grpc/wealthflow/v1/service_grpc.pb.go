@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WealthFlowService_RecordInflow_FullMethodName = "/wealthflow.v1.WealthFlowService/RecordInflow"
-	WealthFlowService_LogExpense_FullMethodName   = "/wealthflow.v1.WealthFlowService/LogExpense"
+	WealthFlowService_RecordInflow_FullMethodName     = "/wealthflow.v1.WealthFlowService/RecordInflow"
+	WealthFlowService_LogExpense_FullMethodName       = "/wealthflow.v1.WealthFlowService/LogExpense"
+	WealthFlowService_UpdateInvestment_FullMethodName = "/wealthflow.v1.WealthFlowService/UpdateInvestment"
 )
 
 // WealthFlowServiceClient is the client API for WealthFlowService service.
@@ -35,6 +36,9 @@ type WealthFlowServiceClient interface {
 	// LogExpense records an expense transaction with double-layer accounting
 	// Creates entries in both Physical and Virtual layers
 	LogExpense(ctx context.Context, in *LogExpenseRequest, opts ...grpc.CallOption) (*LogExpenseResponse, error)
+	// UpdateInvestment updates the market value for an investment bucket
+	// Inserts a new entry into market_value_history (does NOT create a transaction)
+	UpdateInvestment(ctx context.Context, in *UpdateInvestmentRequest, opts ...grpc.CallOption) (*UpdateInvestmentResponse, error)
 }
 
 type wealthFlowServiceClient struct {
@@ -65,6 +69,16 @@ func (c *wealthFlowServiceClient) LogExpense(ctx context.Context, in *LogExpense
 	return out, nil
 }
 
+func (c *wealthFlowServiceClient) UpdateInvestment(ctx context.Context, in *UpdateInvestmentRequest, opts ...grpc.CallOption) (*UpdateInvestmentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateInvestmentResponse)
+	err := c.cc.Invoke(ctx, WealthFlowService_UpdateInvestment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WealthFlowServiceServer is the server API for WealthFlowService service.
 // All implementations must embed UnimplementedWealthFlowServiceServer
 // for forward compatibility.
@@ -77,6 +91,9 @@ type WealthFlowServiceServer interface {
 	// LogExpense records an expense transaction with double-layer accounting
 	// Creates entries in both Physical and Virtual layers
 	LogExpense(context.Context, *LogExpenseRequest) (*LogExpenseResponse, error)
+	// UpdateInvestment updates the market value for an investment bucket
+	// Inserts a new entry into market_value_history (does NOT create a transaction)
+	UpdateInvestment(context.Context, *UpdateInvestmentRequest) (*UpdateInvestmentResponse, error)
 	mustEmbedUnimplementedWealthFlowServiceServer()
 }
 
@@ -92,6 +109,9 @@ func (UnimplementedWealthFlowServiceServer) RecordInflow(context.Context, *Recor
 }
 func (UnimplementedWealthFlowServiceServer) LogExpense(context.Context, *LogExpenseRequest) (*LogExpenseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LogExpense not implemented")
+}
+func (UnimplementedWealthFlowServiceServer) UpdateInvestment(context.Context, *UpdateInvestmentRequest) (*UpdateInvestmentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateInvestment not implemented")
 }
 func (UnimplementedWealthFlowServiceServer) mustEmbedUnimplementedWealthFlowServiceServer() {}
 func (UnimplementedWealthFlowServiceServer) testEmbeddedByValue()                           {}
@@ -150,6 +170,24 @@ func _WealthFlowService_LogExpense_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WealthFlowService_UpdateInvestment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateInvestmentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WealthFlowServiceServer).UpdateInvestment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WealthFlowService_UpdateInvestment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WealthFlowServiceServer).UpdateInvestment(ctx, req.(*UpdateInvestmentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WealthFlowService_ServiceDesc is the grpc.ServiceDesc for WealthFlowService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -164,6 +202,10 @@ var WealthFlowService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LogExpense",
 			Handler:    _WealthFlowService_LogExpense_Handler,
+		},
+		{
+			MethodName: "UpdateInvestment",
+			Handler:    _WealthFlowService_UpdateInvestment_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

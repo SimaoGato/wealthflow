@@ -315,6 +315,125 @@ func (x *LogExpenseResponse) GetPhysicalBucketId() string {
 	return ""
 }
 
+// UpdateInvestmentRequest represents a market value update for an investment bucket
+type UpdateInvestmentRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bucket ID (UUID as string) - must be an EQUITY type bucket
+	BucketId string `protobuf:"bytes,1,opt,name=bucket_id,json=bucketId,proto3" json:"bucket_id,omitempty"`
+	// Market value as a decimal string (e.g., "650.00") to preserve precision
+	MarketValue string `protobuf:"bytes,2,opt,name=market_value,json=marketValue,proto3" json:"market_value,omitempty"`
+	// Optional: Date of the market value (defaults to server time if not provided)
+	Date          *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=date,proto3" json:"date,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateInvestmentRequest) Reset() {
+	*x = UpdateInvestmentRequest{}
+	mi := &file_wealthflow_v1_service_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateInvestmentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateInvestmentRequest) ProtoMessage() {}
+
+func (x *UpdateInvestmentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wealthflow_v1_service_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateInvestmentRequest.ProtoReflect.Descriptor instead.
+func (*UpdateInvestmentRequest) Descriptor() ([]byte, []int) {
+	return file_wealthflow_v1_service_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UpdateInvestmentRequest) GetBucketId() string {
+	if x != nil {
+		return x.BucketId
+	}
+	return ""
+}
+
+func (x *UpdateInvestmentRequest) GetMarketValue() string {
+	if x != nil {
+		return x.MarketValue
+	}
+	return ""
+}
+
+func (x *UpdateInvestmentRequest) GetDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Date
+	}
+	return nil
+}
+
+// UpdateInvestmentResponse confirms the market value update
+type UpdateInvestmentResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Market value history entry ID (UUID as string)
+	EntryId string `protobuf:"bytes,1,opt,name=entry_id,json=entryId,proto3" json:"entry_id,omitempty"`
+	// Timestamp when the entry was created
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateInvestmentResponse) Reset() {
+	*x = UpdateInvestmentResponse{}
+	mi := &file_wealthflow_v1_service_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateInvestmentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateInvestmentResponse) ProtoMessage() {}
+
+func (x *UpdateInvestmentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wealthflow_v1_service_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateInvestmentResponse.ProtoReflect.Descriptor instead.
+func (*UpdateInvestmentResponse) Descriptor() ([]byte, []int) {
+	return file_wealthflow_v1_service_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *UpdateInvestmentResponse) GetEntryId() string {
+	if x != nil {
+		return x.EntryId
+	}
+	return ""
+}
+
+func (x *UpdateInvestmentResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
 var File_wealthflow_v1_service_proto protoreflect.FileDescriptor
 
 const file_wealthflow_v1_service_proto_rawDesc = "" +
@@ -342,11 +461,20 @@ const file_wealthflow_v1_service_proto_rawDesc = "" +
 	"\x0etransaction_id\x18\x01 \x01(\tR\rtransactionId\x129\n" +
 	"\n" +
 	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12,\n" +
-	"\x12physical_bucket_id\x18\x03 \x01(\tR\x10physicalBucketId2\xbf\x01\n" +
+	"\x12physical_bucket_id\x18\x03 \x01(\tR\x10physicalBucketId\"\x89\x01\n" +
+	"\x17UpdateInvestmentRequest\x12\x1b\n" +
+	"\tbucket_id\x18\x01 \x01(\tR\bbucketId\x12!\n" +
+	"\fmarket_value\x18\x02 \x01(\tR\vmarketValue\x12.\n" +
+	"\x04date\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\x04date\"p\n" +
+	"\x18UpdateInvestmentResponse\x12\x19\n" +
+	"\bentry_id\x18\x01 \x01(\tR\aentryId\x129\n" +
+	"\n" +
+	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt2\xa4\x02\n" +
 	"\x11WealthFlowService\x12W\n" +
 	"\fRecordInflow\x12\".wealthflow.v1.RecordInflowRequest\x1a#.wealthflow.v1.RecordInflowResponse\x12Q\n" +
 	"\n" +
-	"LogExpense\x12 .wealthflow.v1.LogExpenseRequest\x1a!.wealthflow.v1.LogExpenseResponseBJZHgithub.com/simaogato/wealthflow-backend/proto/wealthflow/v1;wealthflowv1b\x06proto3"
+	"LogExpense\x12 .wealthflow.v1.LogExpenseRequest\x1a!.wealthflow.v1.LogExpenseResponse\x12c\n" +
+	"\x10UpdateInvestment\x12&.wealthflow.v1.UpdateInvestmentRequest\x1a'.wealthflow.v1.UpdateInvestmentResponseBJZHgithub.com/simaogato/wealthflow-backend/proto/wealthflow/v1;wealthflowv1b\x06proto3"
 
 var (
 	file_wealthflow_v1_service_proto_rawDescOnce sync.Once
@@ -360,28 +488,34 @@ func file_wealthflow_v1_service_proto_rawDescGZIP() []byte {
 	return file_wealthflow_v1_service_proto_rawDescData
 }
 
-var file_wealthflow_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_wealthflow_v1_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_wealthflow_v1_service_proto_goTypes = []any{
-	(*RecordInflowRequest)(nil),   // 0: wealthflow.v1.RecordInflowRequest
-	(*RecordInflowResponse)(nil),  // 1: wealthflow.v1.RecordInflowResponse
-	(*LogExpenseRequest)(nil),     // 2: wealthflow.v1.LogExpenseRequest
-	(*LogExpenseResponse)(nil),    // 3: wealthflow.v1.LogExpenseResponse
-	(*timestamppb.Timestamp)(nil), // 4: google.protobuf.Timestamp
+	(*RecordInflowRequest)(nil),      // 0: wealthflow.v1.RecordInflowRequest
+	(*RecordInflowResponse)(nil),     // 1: wealthflow.v1.RecordInflowResponse
+	(*LogExpenseRequest)(nil),        // 2: wealthflow.v1.LogExpenseRequest
+	(*LogExpenseResponse)(nil),       // 3: wealthflow.v1.LogExpenseResponse
+	(*UpdateInvestmentRequest)(nil),  // 4: wealthflow.v1.UpdateInvestmentRequest
+	(*UpdateInvestmentResponse)(nil), // 5: wealthflow.v1.UpdateInvestmentResponse
+	(*timestamppb.Timestamp)(nil),    // 6: google.protobuf.Timestamp
 }
 var file_wealthflow_v1_service_proto_depIdxs = []int32{
-	4, // 0: wealthflow.v1.RecordInflowRequest.date:type_name -> google.protobuf.Timestamp
-	4, // 1: wealthflow.v1.RecordInflowResponse.created_at:type_name -> google.protobuf.Timestamp
-	4, // 2: wealthflow.v1.LogExpenseRequest.date:type_name -> google.protobuf.Timestamp
-	4, // 3: wealthflow.v1.LogExpenseResponse.created_at:type_name -> google.protobuf.Timestamp
-	0, // 4: wealthflow.v1.WealthFlowService.RecordInflow:input_type -> wealthflow.v1.RecordInflowRequest
-	2, // 5: wealthflow.v1.WealthFlowService.LogExpense:input_type -> wealthflow.v1.LogExpenseRequest
-	1, // 6: wealthflow.v1.WealthFlowService.RecordInflow:output_type -> wealthflow.v1.RecordInflowResponse
-	3, // 7: wealthflow.v1.WealthFlowService.LogExpense:output_type -> wealthflow.v1.LogExpenseResponse
-	6, // [6:8] is the sub-list for method output_type
-	4, // [4:6] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	6, // 0: wealthflow.v1.RecordInflowRequest.date:type_name -> google.protobuf.Timestamp
+	6, // 1: wealthflow.v1.RecordInflowResponse.created_at:type_name -> google.protobuf.Timestamp
+	6, // 2: wealthflow.v1.LogExpenseRequest.date:type_name -> google.protobuf.Timestamp
+	6, // 3: wealthflow.v1.LogExpenseResponse.created_at:type_name -> google.protobuf.Timestamp
+	6, // 4: wealthflow.v1.UpdateInvestmentRequest.date:type_name -> google.protobuf.Timestamp
+	6, // 5: wealthflow.v1.UpdateInvestmentResponse.created_at:type_name -> google.protobuf.Timestamp
+	0, // 6: wealthflow.v1.WealthFlowService.RecordInflow:input_type -> wealthflow.v1.RecordInflowRequest
+	2, // 7: wealthflow.v1.WealthFlowService.LogExpense:input_type -> wealthflow.v1.LogExpenseRequest
+	4, // 8: wealthflow.v1.WealthFlowService.UpdateInvestment:input_type -> wealthflow.v1.UpdateInvestmentRequest
+	1, // 9: wealthflow.v1.WealthFlowService.RecordInflow:output_type -> wealthflow.v1.RecordInflowResponse
+	3, // 10: wealthflow.v1.WealthFlowService.LogExpense:output_type -> wealthflow.v1.LogExpenseResponse
+	5, // 11: wealthflow.v1.WealthFlowService.UpdateInvestment:output_type -> wealthflow.v1.UpdateInvestmentResponse
+	9, // [9:12] is the sub-list for method output_type
+	6, // [6:9] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_wealthflow_v1_service_proto_init() }
@@ -395,7 +529,7 @@ func file_wealthflow_v1_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wealthflow_v1_service_proto_rawDesc), len(file_wealthflow_v1_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

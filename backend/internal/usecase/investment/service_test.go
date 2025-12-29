@@ -213,10 +213,13 @@ func TestUpdateMarketValue_Success(t *testing.T) {
 	})).Return(nil)
 
 	// Execute
-	err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(1200))
+	entry, err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(1200))
 
 	// Assert
 	assert.NoError(t, err)
+	assert.NotNil(t, entry)
+	assert.Equal(t, bucketID, entry.BucketID)
+	assert.True(t, entry.MarketValue.Equal(decimal.NewFromInt(1200)))
 
 	// Verify all mocks were called
 	mockBucketRepo.AssertExpectations(t)
@@ -232,10 +235,11 @@ func TestUpdateMarketValue_ZeroAmount(t *testing.T) {
 
 	// Execute with zero amount
 	bucketID := uuid.New()
-	err := service.UpdateMarketValue(ctx, bucketID, decimal.Zero)
+	entry, err := service.UpdateMarketValue(ctx, bucketID, decimal.Zero)
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, entry)
 	assert.Contains(t, err.Error(), "market value must be positive")
 
 	// Verify no repository calls were made
@@ -252,10 +256,11 @@ func TestUpdateMarketValue_NegativeAmount(t *testing.T) {
 
 	// Execute with negative amount
 	bucketID := uuid.New()
-	err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(-100))
+	entry, err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(-100))
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, entry)
 	assert.Contains(t, err.Error(), "market value must be positive")
 
 	// Verify no repository calls were made
@@ -275,10 +280,11 @@ func TestUpdateMarketValue_BucketNotFound(t *testing.T) {
 	mockBucketRepo.On("GetByID", ctx, bucketID).Return(nil, errors.New("bucket not found"))
 
 	// Execute
-	err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(1200))
+	entry, err := service.UpdateMarketValue(ctx, bucketID, decimal.NewFromInt(1200))
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, entry)
 	assert.Contains(t, err.Error(), "bucket not found")
 
 	// Verify market value repo was not called

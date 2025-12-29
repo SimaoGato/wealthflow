@@ -26,16 +26,17 @@ func NewInvestmentService(bucketRepo domain.BucketRepository, marketValueRepo do
 
 // UpdateMarketValue records a new market value point for a bucket
 // Logic: Insert a new row into market_value_history (does NOT create a transaction entry)
-func (s *InvestmentService) UpdateMarketValue(ctx context.Context, bucketID uuid.UUID, amount decimal.Decimal) error {
+// Returns the created market value history entry
+func (s *InvestmentService) UpdateMarketValue(ctx context.Context, bucketID uuid.UUID, amount decimal.Decimal) (*domain.MarketValueHistory, error) {
 	// Validate amount is positive
 	if amount.LessThanOrEqual(decimal.Zero) {
-		return errors.New("market value must be positive")
+		return nil, errors.New("market value must be positive")
 	}
 
 	// Verify bucket exists (we don't need to use the bucket, just verify it exists)
 	_, err := s.BucketRepo.GetByID(ctx, bucketID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create market value history entry
@@ -47,7 +48,11 @@ func (s *InvestmentService) UpdateMarketValue(ctx context.Context, bucketID uuid
 	}
 
 	// Save to repository
-	return s.MarketValueRepo.Add(ctx, entry)
+	if err := s.MarketValueRepo.Add(ctx, entry); err != nil {
+		return nil, err
+	}
+
+	return entry, nil
 }
 
 // CalculateProfit calculates the profit/loss for a bucket

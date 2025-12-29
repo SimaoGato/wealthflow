@@ -15,6 +15,10 @@ service WealthFlowService {
   // LogExpense records an expense transaction with double-layer accounting
   // Creates entries in both Physical and Virtual layers
   rpc LogExpense(LogExpenseRequest) returns (LogExpenseResponse);
+
+  // UpdateInvestment updates the market value for an investment bucket
+  // Inserts a new entry into market_value_history (does NOT create a transaction)
+  rpc UpdateInvestment(UpdateInvestmentRequest) returns (UpdateInvestmentResponse);
 }
 
 // RecordInflowRequest represents an income/inflow transaction
@@ -76,5 +80,26 @@ message LogExpenseResponse {
   
   // Physical bucket ID that was actually credited (useful when override was used)
   string physical_bucket_id = 3;
+}
+
+// UpdateInvestmentRequest represents a market value update for an investment bucket
+message UpdateInvestmentRequest {
+  // Bucket ID (UUID as string) - must be an EQUITY type bucket
+  string bucket_id = 1;
+  
+  // Market value as a decimal string (e.g., "650.00") to preserve precision
+  string market_value = 2;
+  
+  // Optional: Date of the market value (defaults to server time if not provided)
+  google.protobuf.Timestamp date = 3;
+}
+
+// UpdateInvestmentResponse confirms the market value update
+message UpdateInvestmentResponse {
+  // Market value history entry ID (UUID as string)
+  string entry_id = 1;
+  
+  // Timestamp when the entry was created
+  google.protobuf.Timestamp created_at = 2;
 }
 
