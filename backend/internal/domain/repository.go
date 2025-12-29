@@ -18,3 +18,9 @@ type BucketRepository interface {
 	// This is a convenience method for finding system buckets
 	GetSystemBucket(ctx context.Context, bucketType BucketType) (*Bucket, error)
 }
+
+// TransactionRepository defines the interface for transaction persistence operations
+type TransactionRepository interface {
+	// Create creates a new transaction
+	Create(ctx context.Context, tx *Transaction) error
+}
