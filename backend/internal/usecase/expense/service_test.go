@@ -63,6 +63,11 @@ func (m *MockTransactionRepository) List(ctx context.Context, limit, offset int,
 	return args.Get(0).([]*domain.Transaction), args.Error(1)
 }
 
+func (m *MockTransactionRepository) Count(ctx context.Context, bucketID *uuid.UUID) (int, error) {
+	args := m.Called(ctx, bucketID)
+	return args.Int(0), args.Error(1)
+}
+
 func TestLogExpense_StandardFlow(t *testing.T) {
 	ctx := context.Background()
 	mockBucketRepo := new(MockBucketRepository)
