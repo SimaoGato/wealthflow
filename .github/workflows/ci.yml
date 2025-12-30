@@ -30,7 +30,7 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Generate proto files
-        run: make gen-proto
+        run: make gen-proto-go
 
       - name: Install dependencies
         working-directory: ./backend

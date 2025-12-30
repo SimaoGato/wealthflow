@@ -16,7 +16,11 @@ install-deps:
 # Generate Code
 gen: gen-proto gen-riverpod
 
-gen-proto:
+# Generate both Go and Dart proto code
+gen-proto: gen-proto-go gen-proto-dart
+
+# Generate only Go proto code
+gen-proto-go:
 	@echo "Generating Go code..."
 	mkdir -p $(BACKEND_OUT)
 	protoc --proto_path=$(PROTO_DIR) \
@@ -24,6 +28,8 @@ gen-proto:
 		--go-grpc_out=$(BACKEND_OUT) --go-grpc_opt=paths=source_relative \
 		$(PROTO_DIR)/wealthflow/v1/*.proto
 
+# Generate only Dart proto code
+gen-proto-dart:
 	@echo "Generating Dart proto code..."
 	mkdir -p $(FRONTEND_OUT)
 	protoc --proto_path=$(PROTO_DIR) \
