@@ -1,5 +1,6 @@
 # --- User Documentation (Keep Local) ---
 *.md
+!README.md
 .cursorrules
 
 # --- IDEs ---
