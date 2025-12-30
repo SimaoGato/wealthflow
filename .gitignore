@@ -3,6 +3,9 @@
 !README.md
 .cursorrules
 
+# --- Test Scripts (Keep Local) ---
+*.sh
+
 # --- IDEs ---
 .vscode/
 .idea/
