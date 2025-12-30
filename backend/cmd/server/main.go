@@ -62,6 +62,9 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	db, err := postgres.NewDB(dbConnStr)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
 
 	// 2. Initialize Repositories (Postgres)
 	bucketRepo := postgres.NewBucketRepository(db)

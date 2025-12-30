@@ -26,8 +26,8 @@ jobs:
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
 
-      - name: Start services with Docker Compose
-        run: make docker-up
+      - name: Start Postgres only
+        run: docker-compose up -d postgres
 
       - name: Wait for Postgres to be ready
         run: |
@@ -43,8 +43,22 @@ jobs:
       - name: Run database migrations
         run: make migrate-up
 
+      - name: Start backend service
+        run: docker-compose up -d backend
+
       - name: Install netcat
         run: sudo apt-get update && sudo apt-get install -y netcat-openbsd
+
+      - name: Check backend container status
+        run: docker ps -a
+
+      - name: Show backend logs if container exists
+        if: failure()
+        run: |
+          if docker ps -a | grep -q wealthflow-backend; then
+            echo "=== Backend Container Logs ==="
+            docker logs wealthflow-backend || true
+          fi
 
       - name: Wait for backend gRPC server to be ready
         run: |
@@ -52,6 +66,11 @@ jobs:
             if nc -z localhost 8080; then
               echo "gRPC server is ready"
               break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "Backend failed to start after 60 seconds"
+              docker logs wealthflow-backend || true
+              exit 1
             fi
             echo "Waiting for gRPC server... ($i/30)"
             sleep 2
