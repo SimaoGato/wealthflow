@@ -6,6 +6,16 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/simaogato/wealthflow-backend/proto/wealthflow/v1;wealthflowv1";
 
+// BucketType represents the type of bucket in the system
+enum BucketType {
+  BUCKET_TYPE_UNSPECIFIED = 0;
+  BUCKET_TYPE_PHYSICAL = 1;
+  BUCKET_TYPE_VIRTUAL = 2;
+  BUCKET_TYPE_INCOME = 3;
+  BUCKET_TYPE_EXPENSE = 4;
+  BUCKET_TYPE_EQUITY = 5;
+}
+
 // WealthFlowService provides RPCs for managing financial transactions
 service WealthFlowService {
   // RecordInflow records an income/inflow transaction
@@ -28,6 +38,9 @@ service WealthFlowService {
 
   // GetNetWorth calculates and returns the total net worth
   rpc GetNetWorth(GetNetWorthRequest) returns (GetNetWorthResponse);
+
+  // GetBucket retrieves a single bucket by ID
+  rpc GetBucket(GetBucketRequest) returns (GetBucketResponse);
 }
 
 // RecordInflowRequest represents an income/inflow transaction
@@ -132,8 +145,8 @@ message Bucket {
   // Bucket name
   string name = 2;
   
-  // Bucket type (e.g., "PHYSICAL", "VIRTUAL", "INCOME", "EXPENSE", "EQUITY", "SYSTEM")
-  string type = 3;
+  // Bucket type
+  BucketType type = 3;
   
   // Current balance as a decimal string (e.g., "1000.50") to preserve precision
   string current_balance = 4;
@@ -196,5 +209,17 @@ message GetNetWorthResponse {
   
   // Equity (sum of EQUITY bucket market values) as a decimal string
   string equity = 3;
+}
+
+// GetBucketRequest represents a request to get a bucket by ID
+message GetBucketRequest {
+  // Bucket ID (UUID as string)
+  string bucket_id = 1;
+}
+
+// GetBucketResponse returns a single bucket
+message GetBucketResponse {
+  // The requested bucket
+  Bucket bucket = 1;
 }
 

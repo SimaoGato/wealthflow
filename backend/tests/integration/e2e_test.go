@@ -840,11 +840,11 @@ func TestReadFlow(t *testing.T) {
 		for _, bucket := range bucketsResp.Buckets {
 			if bucket.Name == "Groceries" {
 				groceriesFound = true
-				assert.Equal(t, "EXPENSE", bucket.Type, "Groceries should be EXPENSE type")
+				assert.Equal(t, wealthflowv1.BucketType_BUCKET_TYPE_EXPENSE, bucket.Type, "Groceries should be EXPENSE type")
 			}
 			if bucket.Name == "Tesla Stock" {
 				teslaFound = true
-				assert.Equal(t, "EQUITY", bucket.Type, "Tesla Stock should be EQUITY type")
+				assert.Equal(t, wealthflowv1.BucketType_BUCKET_TYPE_EQUITY, bucket.Type, "Tesla Stock should be EQUITY type")
 			}
 		}
 
@@ -932,5 +932,79 @@ func TestReadFlow(t *testing.T) {
 		assert.True(t, totalDecimal.Equal(expectedTotal),
 			"Total net worth should equal liquidity + equity: got %s, expected %s",
 			netWorthResp.TotalNetWorth, expectedTotal.String())
+	})
+}
+
+// TestGetBucket tests the GetBucket RPC
+func TestGetBucket(t *testing.T) {
+	ctx := getAuthContext()
+
+	// Test cases
+	t.Run("GetExistingBucket", func(t *testing.T) {
+		// Get a known bucket (Main Bank)
+		mainBankID := testBuckets["Main Bank"]
+
+		getBucketReq := &wealthflowv1.GetBucketRequest{
+			BucketId: mainBankID.String(),
+		}
+
+		getBucketResp, err := grpcClient.GetBucket(ctx, getBucketReq)
+		require.NoError(t, err, "GetBucket should succeed")
+		require.NotNil(t, getBucketResp, "GetBucket response should not be nil")
+		require.NotNil(t, getBucketResp.Bucket, "Bucket should not be nil")
+
+		// Verify bucket details
+		assert.Equal(t, mainBankID.String(), getBucketResp.Bucket.Id, "Bucket ID should match")
+		assert.Equal(t, "Main Bank", getBucketResp.Bucket.Name, "Bucket name should match")
+		assert.Equal(t, wealthflowv1.BucketType_BUCKET_TYPE_PHYSICAL, getBucketResp.Bucket.Type, "Bucket type should be PHYSICAL")
+
+		// Verify balance is a valid decimal string
+		balance, err := decimal.NewFromString(getBucketResp.Bucket.CurrentBalance)
+		require.NoError(t, err, "Current balance should be a valid decimal")
+		assert.True(t, balance.GreaterThanOrEqual(decimal.Zero), "Balance should be non-negative")
+	})
+
+	t.Run("GetVirtualBucket", func(t *testing.T) {
+		// Get a virtual bucket (Unallocated)
+		unallocatedID := testBuckets["Unallocated"]
+
+		getBucketReq := &wealthflowv1.GetBucketRequest{
+			BucketId: unallocatedID.String(),
+		}
+
+		getBucketResp, err := grpcClient.GetBucket(ctx, getBucketReq)
+		require.NoError(t, err, "GetBucket should succeed")
+		require.NotNil(t, getBucketResp, "GetBucket response should not be nil")
+		require.NotNil(t, getBucketResp.Bucket, "Bucket should not be nil")
+
+		// Verify bucket details
+		assert.Equal(t, unallocatedID.String(), getBucketResp.Bucket.Id, "Bucket ID should match")
+		assert.Equal(t, "Unallocated", getBucketResp.Bucket.Name, "Bucket name should match")
+		assert.Equal(t, wealthflowv1.BucketType_BUCKET_TYPE_VIRTUAL, getBucketResp.Bucket.Type, "Bucket type should be VIRTUAL")
+		assert.NotEmpty(t, getBucketResp.Bucket.ParentId, "Virtual bucket should have a parent ID")
+	})
+
+	t.Run("GetNonExistentBucket", func(t *testing.T) {
+		// Try to get a non-existent bucket
+		nonExistentID := uuid.New()
+
+		getBucketReq := &wealthflowv1.GetBucketRequest{
+			BucketId: nonExistentID.String(),
+		}
+
+		_, err := grpcClient.GetBucket(ctx, getBucketReq)
+		require.Error(t, err, "GetBucket with non-existent ID should return an error")
+		assert.Equal(t, codes.NotFound, status.Code(err), "Error code should be NotFound")
+	})
+
+	t.Run("GetBucketWithInvalidUUID", func(t *testing.T) {
+		// Try to get a bucket with invalid UUID format
+		getBucketReq := &wealthflowv1.GetBucketRequest{
+			BucketId: "not-a-uuid",
+		}
+
+		_, err := grpcClient.GetBucket(ctx, getBucketReq)
+		require.Error(t, err, "GetBucket with invalid UUID should return an error")
+		assert.Equal(t, codes.InvalidArgument, status.Code(err), "Error code should be InvalidArgument")
 	})
 }

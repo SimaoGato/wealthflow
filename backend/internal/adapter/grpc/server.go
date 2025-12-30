@@ -187,19 +187,7 @@ func (s *Server) ListBuckets(ctx context.Context, req *wealthflowv1.ListBucketsR
 	// Convert domain buckets to proto buckets
 	protoBuckets := make([]*wealthflowv1.Bucket, 0, len(buckets))
 	for _, bucket := range buckets {
-		protoBucket := &wealthflowv1.Bucket{
-			Id:             bucket.ID.String(),
-			Name:           bucket.Name,
-			Type:           string(bucket.BucketType),
-			CurrentBalance: bucket.CurrentBalance.String(),
-		}
-
-		// Set parent_id if it exists
-		if bucket.ParentPhysicalBucketID != nil {
-			protoBucket.ParentId = bucket.ParentPhysicalBucketID.String()
-		}
-
-		protoBuckets = append(protoBuckets, protoBucket)
+		protoBuckets = append(protoBuckets, domainBucketToProto(bucket))
 	}
 
 	return &wealthflowv1.ListBucketsResponse{
@@ -283,6 +271,68 @@ func (s *Server) GetNetWorth(ctx context.Context, req *wealthflowv1.GetNetWorthR
 		Liquidity:     result.Liquidity.String(),
 		Equity:        result.Equity.String(),
 	}, nil
+}
+
+// GetBucket handles the GetBucket RPC
+func (s *Server) GetBucket(ctx context.Context, req *wealthflowv1.GetBucketRequest) (*wealthflowv1.GetBucketResponse, error) {
+	// Parse bucket ID
+	bucketID, err := uuid.Parse(req.BucketId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid bucket_id format: %v", err)
+	}
+
+	// Get bucket from repository
+	bucket, err := s.DashboardService.BucketRepo.GetByID(ctx, bucketID)
+	if err != nil {
+		// Check if it's a "not found" error
+		if strings.Contains(err.Error(), "not found") {
+			return nil, status.Errorf(codes.NotFound, "bucket not found: %v", err)
+		}
+		return nil, mapError(err)
+	}
+
+	// Convert domain bucket to proto bucket
+	protoBucket := domainBucketToProto(bucket)
+
+	// Build response
+	return &wealthflowv1.GetBucketResponse{
+		Bucket: protoBucket,
+	}, nil
+}
+
+// domainBucketTypeToProto converts a domain BucketType to a proto BucketType enum
+func domainBucketTypeToProto(domainType domain.BucketType) wealthflowv1.BucketType {
+	switch domainType {
+	case domain.BucketTypePhysical:
+		return wealthflowv1.BucketType_BUCKET_TYPE_PHYSICAL
+	case domain.BucketTypeVirtual:
+		return wealthflowv1.BucketType_BUCKET_TYPE_VIRTUAL
+	case domain.BucketTypeIncome:
+		return wealthflowv1.BucketType_BUCKET_TYPE_INCOME
+	case domain.BucketTypeExpense:
+		return wealthflowv1.BucketType_BUCKET_TYPE_EXPENSE
+	case domain.BucketTypeEquity:
+		return wealthflowv1.BucketType_BUCKET_TYPE_EQUITY
+	default:
+		return wealthflowv1.BucketType_BUCKET_TYPE_UNSPECIFIED
+	}
+}
+
+// domainBucketToProto converts a domain Bucket to a proto Bucket message
+func domainBucketToProto(bucket *domain.Bucket) *wealthflowv1.Bucket {
+	protoBucket := &wealthflowv1.Bucket{
+		Id:             bucket.ID.String(),
+		Name:           bucket.Name,
+		Type:           domainBucketTypeToProto(bucket.BucketType),
+		CurrentBalance: bucket.CurrentBalance.String(),
+	}
+
+	// Set parent_id if it exists
+	if bucket.ParentPhysicalBucketID != nil {
+		protoBucket.ParentId = bucket.ParentPhysicalBucketID.String()
+	}
+
+	return protoBucket
 }
 
 // mapError converts domain errors to gRPC status errors
