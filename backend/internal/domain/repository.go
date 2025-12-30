@@ -32,6 +32,11 @@ type TransactionRepository interface {
 	// If bucketID is nil, returns all transactions
 	// limit and offset are used for pagination
 	List(ctx context.Context, limit, offset int, bucketID *uuid.UUID) ([]*Transaction, error)
+
+	// Count returns the total number of transactions
+	// If bucketID is nil, returns count of all transactions
+	// If bucketID is provided, returns count of transactions involving that bucket
+	Count(ctx context.Context, bucketID *uuid.UUID) (int, error)
 }
 
 // SplitRuleRepository defines the interface for split rule persistence operations

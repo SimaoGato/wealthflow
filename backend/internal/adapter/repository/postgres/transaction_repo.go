@@ -192,3 +192,34 @@ func (r *transactionRepository) List(ctx context.Context, limit, offset int, buc
 
 	return transactions, nil
 }
+
+// Count returns the total number of transactions
+func (r *transactionRepository) Count(ctx context.Context, bucketID *uuid.UUID) (int, error) {
+	var query string
+	var args []interface{}
+
+	// Build query based on whether bucketID filter is provided
+	if bucketID != nil {
+		query = `
+			SELECT COUNT(DISTINCT t.id)
+			FROM transactions t
+			INNER JOIN transaction_entries te ON t.id = te.transaction_id
+			WHERE te.bucket_id = $1
+		`
+		args = []interface{}{*bucketID}
+	} else {
+		query = `
+			SELECT COUNT(*)
+			FROM transactions
+		`
+		args = []interface{}{}
+	}
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count transactions: %w", err)
+	}
+
+	return count, nil
+}

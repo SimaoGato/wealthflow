@@ -173,9 +173,10 @@ func (s *Server) UpdateInvestment(ctx context.Context, req *wealthflowv1.UpdateI
 // ListBuckets handles the ListBuckets RPC
 func (s *Server) ListBuckets(ctx context.Context, req *wealthflowv1.ListBucketsRequest) (*wealthflowv1.ListBucketsResponse, error) {
 	// Parse bucket type filter (optional)
+	// If bucket_type is UNSPECIFIED (0), treat it as no filter
 	var typeFilter domain.BucketType
-	if req.BucketType != "" {
-		typeFilter = domain.BucketType(req.BucketType)
+	if req.BucketType != wealthflowv1.BucketType_BUCKET_TYPE_UNSPECIFIED {
+		typeFilter = protoBucketTypeToDomain(req.BucketType)
 	}
 
 	// Get buckets from repository
@@ -217,10 +218,44 @@ func (s *Server) ListTransactions(ctx context.Context, req *wealthflowv1.ListTra
 		bucketID = &parsedID
 	}
 
+	// Get total count for accurate pagination
+	totalCount, err := s.DashboardService.TransactionRepo.Count(ctx, bucketID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+
 	// Get transactions from repository
 	transactions, err := s.DashboardService.TransactionRepo.List(ctx, int(req.Limit), int(req.Offset), bucketID)
 	if err != nil {
 		return nil, mapError(err)
+	}
+
+	// Collect all unique bucket IDs from the transactions
+	bucketIDSet := make(map[uuid.UUID]bool)
+	for _, tx := range transactions {
+		for _, entry := range tx.Entries {
+			bucketIDSet[entry.BucketID] = true
+		}
+	}
+
+	// Fetch bucket names for all unique bucket IDs
+	// Always initialize the map (even if empty) to ensure it's never nil
+	bucketNames := make(map[string]string)
+	if len(bucketIDSet) > 0 {
+		bucketIDList := make([]uuid.UUID, 0, len(bucketIDSet))
+		for id := range bucketIDSet {
+			bucketIDList = append(bucketIDList, id)
+		}
+
+		// Fetch each bucket to get its name
+		for _, id := range bucketIDList {
+			bucket, err := s.DashboardService.BucketRepo.GetByID(ctx, id)
+			if err != nil {
+				// If bucket not found, skip it (shouldn't happen, but handle gracefully)
+				continue
+			}
+			bucketNames[id.String()] = bucket.Name
+		}
 	}
 
 	// Convert domain transactions to proto transactions
@@ -235,25 +270,26 @@ func (s *Server) ListTransactions(ctx context.Context, req *wealthflowv1.ListTra
 			}
 		}
 
+		// Determine if this is an internal transfer
+		// It's internal if it's not an external inflow
+		isInternalTransfer := !tx.IsExternalInflow
+
 		protoTx := &wealthflowv1.Transaction{
-			Id:          tx.ID.String(),
-			Description: tx.Description,
-			Amount:      amount.String(),
-			Date:        timestamppb.New(tx.Date),
-			IsExternal:  tx.IsExternalInflow,
+			Id:                 tx.ID.String(),
+			Description:        tx.Description,
+			Amount:             amount.String(),
+			Date:               timestamppb.New(tx.Date),
+			IsExternal:         tx.IsExternalInflow,
+			IsInternalTransfer: isInternalTransfer,
 		}
 
 		protoTransactions = append(protoTransactions, protoTx)
 	}
 
-	// Note: For total_count, we would need a separate count query
-	// For now, we'll return the length as an approximation
-	// In a production system, you'd want to add a Count method to the repository
-	totalCount := int32(len(protoTransactions))
-
 	return &wealthflowv1.ListTransactionsResponse{
 		Transactions: protoTransactions,
-		TotalCount:   totalCount,
+		TotalCount:   int32(totalCount),
+		BucketNames:  bucketNames,
 	}, nil
 }
 
@@ -315,6 +351,24 @@ func domainBucketTypeToProto(domainType domain.BucketType) wealthflowv1.BucketTy
 		return wealthflowv1.BucketType_BUCKET_TYPE_EQUITY
 	default:
 		return wealthflowv1.BucketType_BUCKET_TYPE_UNSPECIFIED
+	}
+}
+
+// protoBucketTypeToDomain converts a proto BucketType enum to a domain BucketType
+func protoBucketTypeToDomain(protoType wealthflowv1.BucketType) domain.BucketType {
+	switch protoType {
+	case wealthflowv1.BucketType_BUCKET_TYPE_PHYSICAL:
+		return domain.BucketTypePhysical
+	case wealthflowv1.BucketType_BUCKET_TYPE_VIRTUAL:
+		return domain.BucketTypeVirtual
+	case wealthflowv1.BucketType_BUCKET_TYPE_INCOME:
+		return domain.BucketTypeIncome
+	case wealthflowv1.BucketType_BUCKET_TYPE_EXPENSE:
+		return domain.BucketTypeExpense
+	case wealthflowv1.BucketType_BUCKET_TYPE_EQUITY:
+		return domain.BucketTypeEquity
+	default:
+		return ""
 	}
 }
 
