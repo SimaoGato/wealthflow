@@ -14,7 +14,9 @@ install-deps:
 	# and your PATH includes the pub cache.
 
 # Generate Code
-gen:
+gen: gen-proto gen-riverpod
+
+gen-proto:
 	@echo "Generating Go code..."
 	mkdir -p $(BACKEND_OUT)
 	protoc --proto_path=$(PROTO_DIR) \
@@ -22,11 +24,15 @@ gen:
 		--go-grpc_out=$(BACKEND_OUT) --go-grpc_opt=paths=source_relative \
 		$(PROTO_DIR)/wealthflow/v1/*.proto
 
-	@echo "Generating Dart code..."
+	@echo "Generating Dart proto code..."
 	mkdir -p $(FRONTEND_OUT)
 	protoc --proto_path=$(PROTO_DIR) \
 		--dart_out=grpc:$(FRONTEND_OUT) \
 		$(PROTO_DIR)/wealthflow/v1/*.proto
+
+gen-riverpod:
+	@echo "Generating Riverpod code..."
+	cd frontend && flutter pub run build_runner build --delete-conflicting-outputs
 
 	@echo "Done!"
 
@@ -34,6 +40,8 @@ gen:
 clean:
 	rm -rf $(BACKEND_OUT)/*.pb.go
 	rm -rf $(FRONTEND_OUT)/*.dart
+	find frontend/lib -name "*.g.dart" -type f -delete
+	find frontend/lib -name "*.freezed.dart" -type f -delete
 
 # Docker commands
 docker-up:
