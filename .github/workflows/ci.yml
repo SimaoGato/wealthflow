@@ -21,6 +21,17 @@ jobs:
         with:
           go-version: '1.25'
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v2
+
+      - name: Install Go protoc plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate proto files
+        run: make gen-proto
+
       - name: Install dependencies
         working-directory: ./backend
         run: go mod download
@@ -45,9 +56,34 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v2
+
+      - name: Install Dart protoc plugin
+        run: |
+          dart pub global activate protoc_plugin
+          echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+
+      - name: Set up Go (for protoc plugins)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install Go protoc plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate proto files
+        run: make gen-proto
+
       - name: Install dependencies
         working-directory: ./frontend
         run: flutter pub get
+
+      - name: Generate Riverpod code
+        working-directory: ./frontend
+        run: flutter pub run build_runner build --delete-conflicting-outputs
 
       - name: Run tests
         working-directory: ./frontend
