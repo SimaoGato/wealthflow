@@ -332,8 +332,26 @@ func getGRPCAddress() string {
 func TestEndToEndFlow(t *testing.T) {
 	ctx := getAuthContext()
 
-	// Step A: RecordInflow from "Employer" with is_external: true
+	mainBankID := testBuckets["Main Bank"]
+	unallocatedID := testBuckets["Unallocated"]
 	employerID := testBuckets["Employer"]
+	groceriesID := testBuckets["Groceries"]
+	teslaID := testBuckets["Tesla Stock"]
+
+	// Get initial balances before RecordInflow
+	balanceQuery := `SELECT current_balance FROM buckets WHERE id = $1`
+	var initialMainBankBalance, initialUnallocatedBalance string
+	err := db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&initialMainBankBalance)
+	require.NoError(t, err, "Should be able to query initial Main Bank balance")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&initialUnallocatedBalance)
+	require.NoError(t, err, "Should be able to query initial Unallocated balance")
+
+	initialMainBank, err := decimal.NewFromString(initialMainBankBalance)
+	require.NoError(t, err)
+	initialUnallocated, err := decimal.NewFromString(initialUnallocatedBalance)
+	require.NoError(t, err)
+
+	// Step A: RecordInflow from "Employer" with is_external: true
 	inflowAmount := "1000.00"
 	inflowReq := &wealthflowv1.RecordInflowRequest{
 		Amount:         inflowAmount,
@@ -348,9 +366,6 @@ func TestEndToEndFlow(t *testing.T) {
 
 	// Step B: Verify money landed in "Main Bank" (via the Virtual Unallocated parent)
 	// Verify transaction entries were created correctly
-	mainBankID := testBuckets["Main Bank"]
-	unallocatedID := testBuckets["Unallocated"]
-
 	// Check physical layer entry: Main Bank should be debited
 	var physicalDebitCount int
 	var physicalDebitAmount string
@@ -393,8 +408,38 @@ func TestEndToEndFlow(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, virtualDebitedAmount.Equal(expectedAmount), "Virtual debited amount should match inflow amount")
 
+	// Verify balances after RecordInflow (trigger should have updated them)
+	var mainBankBalanceAfterInflow, unallocatedBalanceAfterInflow string
+	err = db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&mainBankBalanceAfterInflow)
+	require.NoError(t, err, "Should be able to query Main Bank balance after inflow")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&unallocatedBalanceAfterInflow)
+	require.NoError(t, err, "Should be able to query Unallocated balance after inflow")
+
+	mainBankAfterInflow, err := decimal.NewFromString(mainBankBalanceAfterInflow)
+	require.NoError(t, err)
+	unallocatedAfterInflow, err := decimal.NewFromString(unallocatedBalanceAfterInflow)
+	require.NoError(t, err)
+
+	// Main Bank should have increased by inflowAmount (DEBIT increases balance)
+	expectedMainBankAfterInflow := initialMainBank.Add(expectedAmount)
+	assert.True(t, mainBankAfterInflow.Equal(expectedMainBankAfterInflow),
+		"Main Bank balance should increase by inflow amount: got %s, expected %s",
+		mainBankAfterInflow.String(), expectedMainBankAfterInflow.String())
+
+	// Unallocated should have increased by inflowAmount (DEBIT increases balance)
+	expectedUnallocatedAfterInflow := initialUnallocated.Add(expectedAmount)
+	assert.True(t, unallocatedAfterInflow.Equal(expectedUnallocatedAfterInflow),
+		"Unallocated balance should increase by inflow amount: got %s, expected %s",
+		unallocatedAfterInflow.String(), expectedUnallocatedAfterInflow.String())
+
+	// Get initial Groceries balance before LogExpense
+	var initialGroceriesBalance string
+	err = db.QueryRowContext(ctx, balanceQuery, groceriesID).Scan(&initialGroceriesBalance)
+	require.NoError(t, err, "Should be able to query initial Groceries balance")
+	initialGroceries, err := decimal.NewFromString(initialGroceriesBalance)
+	require.NoError(t, err)
+
 	// Step C: LogExpense from "Unallocated" to "Groceries"
-	groceriesID := testBuckets["Groceries"]
 	expenseAmount := "50.00"
 	expenseReq := &wealthflowv1.LogExpenseRequest{
 		Amount:           expenseAmount,
@@ -408,8 +453,45 @@ func TestEndToEndFlow(t *testing.T) {
 	assert.NotEmpty(t, expenseResp.TransactionId, "Transaction ID should be returned")
 	assert.Equal(t, mainBankID.String(), expenseResp.PhysicalBucketId, "Physical bucket should be Main Bank")
 
+	// Verify balances after LogExpense (trigger should have updated them)
+	var mainBankBalanceAfterExpense, unallocatedBalanceAfterExpense, groceriesBalanceAfterExpense string
+	err = db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&mainBankBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Main Bank balance after expense")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&unallocatedBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Unallocated balance after expense")
+	err = db.QueryRowContext(ctx, balanceQuery, groceriesID).Scan(&groceriesBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Groceries balance after expense")
+
+	mainBankAfterExpense, err := decimal.NewFromString(mainBankBalanceAfterExpense)
+	require.NoError(t, err)
+	unallocatedAfterExpense, err := decimal.NewFromString(unallocatedBalanceAfterExpense)
+	require.NoError(t, err)
+	groceriesAfterExpense, err := decimal.NewFromString(groceriesBalanceAfterExpense)
+	require.NoError(t, err)
+
+	expenseAmountDecimal, err := decimal.NewFromString(expenseAmount)
+	require.NoError(t, err)
+
+	// Main Bank should have decreased by expenseAmount (CREDIT decreases balance)
+	expectedMainBankAfterExpense := mainBankAfterInflow.Sub(expenseAmountDecimal)
+	assert.True(t, mainBankAfterExpense.Equal(expectedMainBankAfterExpense),
+		"Main Bank balance should decrease by expense amount: got %s, expected %s",
+		mainBankAfterExpense.String(), expectedMainBankAfterExpense.String())
+
+	// Unallocated should have decreased by expenseAmount (CREDIT decreases balance)
+	expectedUnallocatedAfterExpense := unallocatedAfterInflow.Sub(expenseAmountDecimal)
+	assert.True(t, unallocatedAfterExpense.Equal(expectedUnallocatedAfterExpense),
+		"Unallocated balance should decrease by expense amount: got %s, expected %s",
+		unallocatedAfterExpense.String(), expectedUnallocatedAfterExpense.String())
+
+	// Groceries should have increased by expenseAmount (DEBIT increases balance, happens in both layers)
+	// Note: Groceries gets debited in both PHYSICAL and VIRTUAL layers, so it increases by 2x expenseAmount
+	expectedGroceriesAfterExpense := initialGroceries.Add(expenseAmountDecimal.Mul(decimal.NewFromInt(2)))
+	assert.True(t, groceriesAfterExpense.Equal(expectedGroceriesAfterExpense),
+		"Groceries balance should increase by 2x expense amount (physical + virtual): got %s, expected %s",
+		groceriesAfterExpense.String(), expectedGroceriesAfterExpense.String())
+
 	// Step D: UpdateInvestment for "Tesla Stock"
-	teslaID := testBuckets["Tesla Stock"]
 	marketValue := "650.00"
 	investmentReq := &wealthflowv1.UpdateInvestmentRequest{
 		BucketId:    teslaID.String(),
@@ -430,11 +512,38 @@ func TestEndToEndFlow(t *testing.T) {
 	expectedMarketValue, err := decimal.NewFromString(marketValue)
 	require.NoError(t, err)
 	assert.True(t, recordedDecimal.Equal(expectedMarketValue), "Market value should match")
+
+	// Step E: Verify Net Worth reflects the sum of physical bucket and equity market value
+	netWorthReq := &wealthflowv1.GetNetWorthRequest{}
+	netWorthResp, err := grpcClient.GetNetWorth(ctx, netWorthReq)
+	require.NoError(t, err, "GetNetWorth should succeed")
+	require.NotNil(t, netWorthResp, "GetNetWorth response should not be nil")
+
+	// Verify Liquidity matches the current Main Bank balance
+	liquidityDecimal, err := decimal.NewFromString(netWorthResp.Liquidity)
+	require.NoError(t, err)
+	assert.True(t, liquidityDecimal.Equal(mainBankAfterExpense),
+		"Liquidity should match Main Bank balance: got %s, expected %s",
+		netWorthResp.Liquidity, mainBankAfterExpense.String())
+
+	// Verify Equity matches the Tesla stock market value
+	equityDecimal, err := decimal.NewFromString(netWorthResp.Equity)
+	require.NoError(t, err)
+	assert.True(t, equityDecimal.Equal(expectedMarketValue),
+		"Equity should match Tesla stock market value: got %s, expected %s",
+		netWorthResp.Equity, marketValue)
+
+	// Verify total net worth is liquidity + equity
+	expectedTotal := liquidityDecimal.Add(expectedMarketValue)
+	totalDecimal, err := decimal.NewFromString(netWorthResp.TotalNetWorth)
+	require.NoError(t, err)
+	assert.True(t, totalDecimal.Equal(expectedTotal),
+		"Total net worth should equal liquidity + equity: got %s, expected %s",
+		netWorthResp.TotalNetWorth, expectedTotal.String())
 }
 
 // TestEndToEndFlow_VerifyBalances tests that transaction entries are correctly created
-// Note: This test verifies transaction entries rather than current_balance since
-// balances may be calculated on-demand rather than stored
+// and that bucket balances are automatically updated via the database trigger
 func TestEndToEndFlow_VerifyBalances(t *testing.T) {
 	ctx := getAuthContext()
 
@@ -442,6 +551,23 @@ func TestEndToEndFlow_VerifyBalances(t *testing.T) {
 	unallocatedID := testBuckets["Unallocated"]
 	employerID := testBuckets["Employer"]
 	groceriesID := testBuckets["Groceries"]
+
+	// Get initial balances
+	var initialMainBankBalance, initialUnallocatedBalance, initialGroceriesBalance string
+	balanceQuery := `SELECT current_balance FROM buckets WHERE id = $1`
+	err := db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&initialMainBankBalance)
+	require.NoError(t, err, "Should be able to query initial Main Bank balance")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&initialUnallocatedBalance)
+	require.NoError(t, err, "Should be able to query initial Unallocated balance")
+	err = db.QueryRowContext(ctx, balanceQuery, groceriesID).Scan(&initialGroceriesBalance)
+	require.NoError(t, err, "Should be able to query initial Groceries balance")
+
+	initialMainBank, err := decimal.NewFromString(initialMainBankBalance)
+	require.NoError(t, err)
+	initialUnallocated, err := decimal.NewFromString(initialUnallocatedBalance)
+	require.NoError(t, err)
+	initialGroceries, err := decimal.NewFromString(initialGroceriesBalance)
+	require.NoError(t, err)
 
 	// Record inflow
 	inflowAmount := decimal.NewFromInt(500)
@@ -493,6 +619,30 @@ func TestEndToEndFlow_VerifyBalances(t *testing.T) {
 	unallocatedDebit, err := decimal.NewFromString(unallocatedDebitAmount)
 	require.NoError(t, err)
 	assert.True(t, unallocatedDebit.Equal(inflowAmount), "Unallocated debit should equal inflow amount")
+
+	// Verify balances after RecordInflow (trigger should have updated them)
+	var mainBankBalanceAfterInflow, unallocatedBalanceAfterInflow string
+	err = db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&mainBankBalanceAfterInflow)
+	require.NoError(t, err, "Should be able to query Main Bank balance after inflow")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&unallocatedBalanceAfterInflow)
+	require.NoError(t, err, "Should be able to query Unallocated balance after inflow")
+
+	mainBankAfterInflow, err := decimal.NewFromString(mainBankBalanceAfterInflow)
+	require.NoError(t, err)
+	unallocatedAfterInflow, err := decimal.NewFromString(unallocatedBalanceAfterInflow)
+	require.NoError(t, err)
+
+	// Main Bank should have increased by inflowAmount (DEBIT increases balance)
+	expectedMainBankAfterInflow := initialMainBank.Add(inflowAmount)
+	assert.True(t, mainBankAfterInflow.Equal(expectedMainBankAfterInflow),
+		"Main Bank balance should increase by inflow amount: got %s, expected %s",
+		mainBankAfterInflow.String(), expectedMainBankAfterInflow.String())
+
+	// Unallocated should have increased by inflowAmount (DEBIT increases balance)
+	expectedUnallocatedAfterInflow := initialUnallocated.Add(inflowAmount)
+	assert.True(t, unallocatedAfterInflow.Equal(expectedUnallocatedAfterInflow),
+		"Unallocated balance should increase by inflow amount: got %s, expected %s",
+		unallocatedAfterInflow.String(), expectedUnallocatedAfterInflow.String())
 
 	// Log expense
 	expenseAmount := decimal.NewFromInt(25)
@@ -563,6 +713,40 @@ func TestEndToEndFlow_VerifyBalances(t *testing.T) {
 	require.NoError(t, err)
 	expectedGroceriesTotal := expenseAmount.Mul(decimal.NewFromInt(2)) // Physical + Virtual
 	assert.True(t, groceriesDebit.Equal(expectedGroceriesTotal), "Groceries total debit should equal 2x expense amount")
+
+	// Verify balances after LogExpense (trigger should have updated them)
+	var mainBankBalanceAfterExpense, unallocatedBalanceAfterExpense, groceriesBalanceAfterExpense string
+	err = db.QueryRowContext(ctx, balanceQuery, mainBankID).Scan(&mainBankBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Main Bank balance after expense")
+	err = db.QueryRowContext(ctx, balanceQuery, unallocatedID).Scan(&unallocatedBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Unallocated balance after expense")
+	err = db.QueryRowContext(ctx, balanceQuery, groceriesID).Scan(&groceriesBalanceAfterExpense)
+	require.NoError(t, err, "Should be able to query Groceries balance after expense")
+
+	mainBankAfterExpense, err := decimal.NewFromString(mainBankBalanceAfterExpense)
+	require.NoError(t, err)
+	unallocatedAfterExpense, err := decimal.NewFromString(unallocatedBalanceAfterExpense)
+	require.NoError(t, err)
+	groceriesAfterExpense, err := decimal.NewFromString(groceriesBalanceAfterExpense)
+	require.NoError(t, err)
+
+	// Main Bank should have decreased by expenseAmount (CREDIT decreases balance)
+	expectedMainBankAfterExpense := mainBankAfterInflow.Sub(expenseAmount)
+	assert.True(t, mainBankAfterExpense.Equal(expectedMainBankAfterExpense),
+		"Main Bank balance should decrease by expense amount: got %s, expected %s",
+		mainBankAfterExpense.String(), expectedMainBankAfterExpense.String())
+
+	// Unallocated should have decreased by expenseAmount (CREDIT decreases balance)
+	expectedUnallocatedAfterExpense := unallocatedAfterInflow.Sub(expenseAmount)
+	assert.True(t, unallocatedAfterExpense.Equal(expectedUnallocatedAfterExpense),
+		"Unallocated balance should decrease by expense amount: got %s, expected %s",
+		unallocatedAfterExpense.String(), expectedUnallocatedAfterExpense.String())
+
+	// Groceries should have increased by 2x expenseAmount (DEBIT increases balance in both PHYSICAL and VIRTUAL layers)
+	expectedGroceriesAfterExpense := initialGroceries.Add(expenseAmount.Mul(decimal.NewFromInt(2)))
+	assert.True(t, groceriesAfterExpense.Equal(expectedGroceriesAfterExpense),
+		"Groceries balance should increase by 2x expense amount (physical + virtual): got %s, expected %s",
+		groceriesAfterExpense.String(), expectedGroceriesAfterExpense.String())
 }
 
 // TestNegativeScenarios tests error handling for invalid inputs
